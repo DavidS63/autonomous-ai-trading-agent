@@ -37,7 +37,7 @@ class LLMDecisionHead:
 
     def refine_ideas(
         self,
-        ideas: List[Any],  # List[TradeIdea]
+        ideas: List[Any],
         research: Dict[str, Any],
     ) -> List[Any]:
         if not self.enabled or not ideas:
@@ -45,9 +45,8 @@ class LLMDecisionHead:
 
         console.print("[cyan]▶ LLM refining trade ideas...[/]")
 
-        # Build compact context
         context_parts = []
-        for idea in ideas[:6]:  # limit tokens
+        for idea in ideas[:6]:
             news = []
             for r in research.get("symbol_reports", []):
                 if r.get("symbol") == idea.symbol:
@@ -71,11 +70,12 @@ class LLMDecisionHead:
             "Your job is to critique each candidate trade idea and return an improved confidence "
             "score (0.0–1.0) and a clearer, more specific thesis. "
             "Be conservative: only raise confidence when news + technicals strongly align. "
-            "Return pure JSON only."
+            "Return a JSON object with a key named results whose value is a list of objects. "
+            "Each object must have: symbol, adjusted_confidence (float), refined_thesis (string), keep (bool)."
         )
 
         user = {
-            "task": "Refine the following trade ideas. For each return: symbol, adjusted_confidence (float), refined_thesis (string), keep (bool).",
+            "task": "Refine the following trade ideas.",
             "self_reflection": research.get("self_reflection"),
             "ideas": context_parts,
         }
@@ -94,12 +94,23 @@ class LLMDecisionHead:
             content = resp.choices[0].message.content
             data = json.loads(content)
 
-            # data expected as {"results": [...]} or list
-            results = data.get("results") or data.get("ideas") or data
-            if isinstance(results, dict):
-                results = list(results.values()) if results else []
+            if isinstance(data, list):
+                results = data
+            elif isinstance(data, dict):
+                results = data.get("results") or data.get("ideas") or data
+                if isinstance(results, dict):
+                    results = list(results.values())
+            else:
+                results = []
 
-            refined_map = {r.get("symbol"): r for r in results if isinstance(r, dict)}
+            if not isinstance(results, list):
+                results = [results]
+
+            refined_map = {
+                r.get("symbol"): r
+                for r in results
+                if isinstance(r, dict) and r.get("symbol")
+            }
 
             kept = []
             for idea in ideas:
@@ -110,7 +121,6 @@ class LLMDecisionHead:
                 if ref.get("keep") is False:
                     console.print(f"[yellow]LLM discarded[/] {idea.symbol}")
                     continue
-                # Update
                 new_conf = float(ref.get("adjusted_confidence", idea.confidence))
                 idea.confidence = max(0.0, min(1.0, new_conf))
                 if ref.get("refined_thesis"):
