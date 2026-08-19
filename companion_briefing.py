@@ -1,16 +1,11 @@
 #!/usr/bin/env python3
-"""
-Companion Briefing Agent
-Reads the trading agent's journal and performance files and prints a
-plain-English summary a 12-year-old could understand.
-"""
+"""Companion Briefing Agent - plain-English summary of the trading robot."""
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
 from collections import Counter
-from datetime import datetime
 
 from rich.console import Console
 from rich.panel import Panel
@@ -19,10 +14,9 @@ from rich.table import Table
 console = Console()
 
 JOURNAL = Path("data/trade_journal.jsonl")
-PERF = Path("data/performance.json")
 
 
-def load_journal(limit: int = 40) -> list:
+def load_journal(limit: int = 40):
     if not JOURNAL.exists():
         return []
     lines = JOURNAL.read_text().strip().splitlines()[-limit:]
@@ -75,9 +69,8 @@ def main():
         latest = reviews[-1].get("summary") or {}
         console.print("\n[bold]Latest self-review lessons:[/]")
         for lesson in latest.get("lessons") or ["(none written yet)"]:
-            console.print(f"  • {lesson}")
+            console.print(f"  \u2022 {lesson}")
         console.print(f"\nOpen positions at last review: {latest.get('open_positions', '?')}")
-        console.print(f"Ideas that day: {latest.get('ideas_generated_today', '?')}")
     else:
         console.print("\n[dim]No formal end-of-day review has been run yet. Try: python main.py --review[/]")
 
@@ -89,7 +82,7 @@ def main():
     elif sides.get("SELL", 0) > sides.get("BUY", 0) * 2:
         console.print("  It has been mostly looking for sells/shorts. Make sure you are comfortable with short ideas.")
     else:
-        console.print("  Mix of buys and sells — balanced so far.")
+        console.print("  Mix of buys and sells \u2014 balanced so far.")
 
     console.print("\n[green]Briefing complete.[/] Run this any time after the main agent finishes a cycle.")
 
