@@ -13,9 +13,11 @@ from alpaca.trading.requests import (
     ClosePositionRequest,
 )
 from alpaca.trading.enums import OrderSide, TimeInForce, QueryOrderStatus
+from datetime import datetime, timedelta, timezone
 from alpaca.data.historical import StockHistoricalDataClient
 from alpaca.data.requests import StockBarsRequest, StockLatestQuoteRequest
 from alpaca.data.timeframe import TimeFrame
+from alpaca.data.enums import DataFeed
 from alpaca.common.exceptions import APIError
 from dotenv import load_dotenv
 from rich.console import Console
@@ -128,18 +130,46 @@ class PaperBroker:
             return False
 
     def get_latest_quotes(self, symbols: List[str]) -> Dict[str, float]:
-        req = StockLatestQuoteRequest(symbol_or_symbols=symbols)
+        req = StockLatestQuoteRequest(
+            symbol_or_symbols=symbols,
+            feed=DataFeed.IEX,  # free paper accounts use IEX, not SIP
+        )
         quotes = self.data.get_stock_latest_quote(req)
-        return {sym: float(q.ask_price or q.bid_price or 0) for sym, q in quotes.items()}
+        prices = {}
+        for sym, q in quotes.items():
+            price = float(q.ask_price or q.bid_price or 0)
+            if price > 0:
+                prices[sym] = price
+        return prices
 
     def get_bars(self, symbol: str, limit: int = 50) -> List[Dict[str, Any]]:
+        """Daily bars via IEX feed (works on free Alpaca paper keys)."""
+        end = datetime.now(timezone.utc)
+        start = end - timedelta(days=max(limit + 10, 80))
         req = StockBarsRequest(
             symbol_or_symbols=symbol,
-            timeframe=TimeFrame.Minute,  # for short-term focus; change to Day if preferred
+            timeframe=TimeFrame.Day,
+            start=start,
+            end=end,
             limit=limit,
+            feed=DataFeed.IEX,
         )
         bars = self.data.get_stock_bars(req)
-        data = bars[symbol]
+
+        data = None
+        if hasattr(bars, "data") and symbol in getattr(bars, "data", {}):
+            data = bars.data[symbol]
+        elif symbol in bars:
+            data = bars[symbol]
+        else:
+            try:
+                data = bars[symbol]
+            except Exception:
+                return []
+
+        if not data:
+            return []
+
         return [
             {
                 "t": str(b.timestamp),
@@ -167,5 +197,4 @@ class PaperBroker:
             return 0.0
         dollar_risk = equity * (risk_pct / 100.0)
         shares = dollar_risk / risk_per_share
-        # Round down to whole shares for simplicity (Alpaca supports fractional too)
         return max(0.0, round(shares, 2))
