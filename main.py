@@ -2,14 +2,6 @@
 """
 Self-Improving Autonomous AI Trading Agent
 Alpaca Paper Trading only.
-
-Usage:
-  1. Copy .env.example → .env and add your free paper API keys
-  2. pip install -r requirements.txt
-  3. python main.py                 # single full cycle
-  4. python main.py --loop          # continuous
-  5. python main.py --review        # force end-of-day review
-  6. python main.py --dry-run       # research + decide, no orders
 """
 
 from __future__ import annotations
@@ -29,7 +21,7 @@ from agent.decision import DecisionEngine
 from agent.journal import TradeJournal
 from agent.improvement import SelfImprovement
 
-console = Console()
+console = Console(force_terminal=False, emoji=False, legacy_windows=True)
 
 
 def load_config() -> dict:
@@ -68,7 +60,7 @@ def print_account(account: dict, positions: list):
 
 
 def run_cycle(broker, research, decision, journal, config, dry_run: bool = False):
-    console.print(Panel.fit("[bold]Autonomous AI Trading Agent – Cycle Start[/]", style="blue"))
+    console.print(Panel.fit("[bold]Autonomous AI Trading Agent - Cycle Start[/]", style="blue"))
 
     research_data = research.run_full_scan()
     account = research_data["account"]
@@ -94,12 +86,11 @@ def run_cycle(broker, research, decision, journal, config, dry_run: bool = False
             "thesis": idea.thesis,
         }
 
-        # Permission gate for short / sell ideas
         if idea.side.lower() == "sell" and not dry_run:
             console.print(
-                f"\n[bold yellow]PERMISSION NEEDED[/] — short/sell idea:\n"
+                f"\n[bold yellow]PERMISSION NEEDED[/] - short/sell idea:\n"
                 f"  {idea.side.upper()} {idea.qty} {idea.symbol} @ ~{idea.entry:.2f}\n"
-                f"  Stop {idea.stop:.2f} \u00b7 Conf {idea.confidence:.2f}\n"
+                f"  Stop {idea.stop:.2f} | Conf {idea.confidence:.2f}\n"
                 f"  Thesis: {idea.thesis}"
             )
             try:
@@ -131,7 +122,7 @@ def run_cycle(broker, research, decision, journal, config, dry_run: bool = False
                 journal.log_decision(idea_dict, {"error": str(e)}, research_data)
 
     if not approved:
-        console.print("[yellow]No high-confidence edge found – sitting out (good discipline).[/]")
+        console.print("[yellow]No high-confidence edge found - sitting out (good discipline).[/]")
 
     console.print(Panel.fit("[bold green]Cycle complete[/]", style="green"))
     return research_data
@@ -151,7 +142,7 @@ def main():
     try:
         broker = PaperBroker()
         account = broker.get_account()
-        console.print(f"[green]\u2713 Connected to Alpaca Paper[/] – Equity ${account['equity']:,.2f}")
+        console.print(f"[green]OK Connected to Alpaca Paper[/] - Equity ${account['equity']:,.2f}")
     except Exception as e:
         console.print(f"[red]Failed to connect:[/] {e}")
         console.print("Make sure .env contains valid paper keys from https://app.alpaca.markets")
