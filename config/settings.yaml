@@ -1,0 +1,42 @@
+# Agent Configuration
+agent:
+  name: "AutonomousAI-Trader"
+  mode: "paper"                 # always paper for this implementation
+  risk_per_trade_pct: 1.0       # max 1% of equity risked per trade
+  max_open_positions: 8
+  max_portfolio_heat_pct: 6.0   # total risk across open positions
+  default_stop_pct: 1.5         # initial stop distance
+  take_profit_rr: 2.0           # reward:risk target
+  min_confidence: 0.62          # only trade when model confidence >= this
+
+universe:
+  # High-liquidity names for short-term / day-trade focus
+  symbols:
+    - SPY
+    - QQQ
+    - AAPL
+    - MSFT
+    - NVDA
+    - TSLA
+    - AMD
+    - META
+    - AMZN
+    - GOOGL
+    - IWM
+    - DIA
+
+research:
+  lookback_bars: 50
+  news_limit: 15
+  include_macro_events: true
+
+schedule:
+  market_open_check_interval_min: 5
+  full_research_interval_min: 30
+  end_of_day_review: "15:50"    # ET - before close
+
+logging:
+  level: "INFO"
+  journal_path: "data/trade_journal.jsonl"
+  research_log: "logs/research.jsonl"
+  performance_log: "data/performance.json"
