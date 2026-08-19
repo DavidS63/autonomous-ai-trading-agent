@@ -7,8 +7,9 @@ Usage:
   1. Copy .env.example → .env and add your free paper API keys
   2. pip install -r requirements.txt
   3. python main.py                 # single full cycle
-  4. python main.py --loop          # continuous (respects market hours roughly)
+  4. python main.py --loop          # continuous
   5. python main.py --review        # force end-of-day review
+  6. python main.py --dry-run       # research + decide, no orders
 """
 
 from __future__ import annotations
@@ -69,7 +70,6 @@ def print_account(account: dict, positions: list):
 def run_cycle(broker, research, decision, journal, config, dry_run: bool = False):
     console.print(Panel.fit("[bold]Autonomous AI Trading Agent – Cycle Start[/]", style="blue"))
 
-    # 1. Research
     research_data = research.run_full_scan()
     account = research_data["account"]
     positions = research_data["open_positions"]
@@ -77,13 +77,11 @@ def run_cycle(broker, research, decision, journal, config, dry_run: bool = False
 
     console.print(f"\n[dim]Self-reflection:[/] {research_data['self_reflection']}\n")
 
-    # 2. Decision
     ideas = decision.generate_ideas(research_data)
     approved = decision.apply_risk_limits(
         ideas, account["equity"], positions, broker
     )
 
-    # 3. Execution
     for idea in approved:
         idea_dict = {
             "symbol": idea.symbol,
@@ -95,6 +93,28 @@ def run_cycle(broker, research, decision, journal, config, dry_run: bool = False
             "confidence": idea.confidence,
             "thesis": idea.thesis,
         }
+
+        # Permission gate for short / sell ideas
+        if idea.side.lower() == "sell" and not dry_run:
+            console.print(
+                f"\n[bold yellow]PERMISSION NEEDED[/] — short/sell idea:\n"
+                f"  {idea.side.upper()} {idea.qty} {idea.symbol} @ ~{idea.entry:.2f}\n"
+                f"  Stop {idea.stop:.2f} \u00b7 Conf {idea.confidence:.2f}\n"
+                f"  Thesis: {idea.thesis}"
+            )
+            try:
+                answer = input("Allow this short/sell? Type YES to approve, anything else to skip: ").strip()
+            except EOFError:
+                answer = ""
+            if answer.upper() != "YES":
+                console.print(f"[dim]Skipped short {idea.symbol} (no permission).[/]")
+                journal.log_decision(
+                    {**idea_dict, "status": "skipped_no_permission"},
+                    None,
+                    research_data,
+                )
+                continue
+
         if dry_run:
             console.print(f"[yellow]DRY-RUN[/] would {idea.side.upper()} {idea.qty} {idea.symbol}")
             journal.log_decision(idea_dict, None, research_data)
@@ -131,7 +151,7 @@ def main():
     try:
         broker = PaperBroker()
         account = broker.get_account()
-        console.print(f"[green]✓ Connected to Alpaca Paper[/] – Equity ${account['equity']:,.2f}")
+        console.print(f"[green]\u2713 Connected to Alpaca Paper[/] – Equity ${account['equity']:,.2f}")
     except Exception as e:
         console.print(f"[red]Failed to connect:[/] {e}")
         console.print("Make sure .env contains valid paper keys from https://app.alpaca.markets")
@@ -152,9 +172,8 @@ def main():
         while True:
             try:
                 run_cycle(broker, research, decision, journal, config, dry_run=args.dry_run)
-                # Optional: check time of day for end-of-day review
                 now = datetime.now()
-                if now.hour == 15 and now.minute >= 50:  # rough ET close window
+                if now.hour == 15 and now.minute >= 50:
                     positions = broker.get_positions()
                     improver.end_of_day_review(broker.get_account(), positions)
                 time.sleep(args.interval * 60)
