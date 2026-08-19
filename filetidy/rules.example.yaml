@@ -1,0 +1,37 @@
+# Example rules file:  tidy sort ~/Downloads --by rules --rules rules.example.yaml
+# First matching rule wins. Every 'target' and 'rename' accepts the same tokens
+# as `tidy rename` ({date}, {category}, {name}, {ext}, {n}, {project}, ...).
+
+rules:
+  - name: Invoices and receipts
+    match:
+      name: ["*invoice*", "*receipt*"]
+      ext: [pdf, png, jpg]
+    target: "Finance/Invoices/{date:%Y}"
+    rename: "Invoice_{date:%Y-%m-%d}_{n:03}.{ext}"
+
+  - name: Screenshots
+    match:
+      regex: "^(Screenshot|Screen Shot|CleanShot)"
+    target: "Images/Screenshots/{date:%Y-%m}"
+
+  - name: Big installers I keep forgetting about
+    match:
+      ext: [exe, msi, dmg, pkg, deb, appimage]
+      min_size: 50MB
+    target: "Installers/{date:%Y-%m}"
+
+  - name: Stale archives
+    match:
+      category: Archives
+      older_than: 90d
+    target: "Archive/Old/{date:%Y}"
+
+  - name: Project source drops
+    match:
+      path: "src/**"
+      ext: [py, js, ts]
+    target: "Code/{parent}"
+
+# Anything no rule claims lands here. Omit it to leave unmatched files alone.
+default_target: "Unsorted/{category}"

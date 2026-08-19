@@ -96,6 +96,30 @@ LLM_MODEL=anthropic/claude-3.5-sonnet
 
 ---
 
+## Bundled utility: `tidy` (file organizer)
+
+Also in this repo is a standalone CLI for cleaning up a Downloads or project
+folder. It sorts files by type, date, extension or custom rules, renames them
+from patterns, and removes duplicate copies. Standard library only - no external
+APIs, no network access, independent of the trading agent.
+
+```bash
+python tidy.py sort ~/Downloads --by type,date          # preview
+python tidy.py sort ~/Downloads --by type,date --apply  # do it
+
+# ProjectName_2026-08-001.pdf, ProjectName_2026-08-002.pdf, ...
+python tidy.py rename ./scans --pattern '{project}_{date:%Y-%m}-{n:03}' \
+               --project ProjectName --apply
+
+python tidy.py dedupe ~/Downloads --action move --keep oldest --apply
+python tidy.py undo --apply      # reverse the last run
+```
+
+Every command previews by default and writes an undo journal when applied.
+Full documentation: [docs/FILETIDY.md](docs/FILETIDY.md).
+
+---
+
 ## Important Disclaimers
 
 - Educational / research software only.
